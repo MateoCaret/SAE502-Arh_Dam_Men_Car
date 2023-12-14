@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tableau de Bord - Machines Virtuelles</title>
+</head>
+<body>
+    <h1>Tableau de Bord - Machines Virtuelles</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Utilisation CPU (%)</th>
+                <th>Utilisation Mémoire (%)</th>
+                <th>Mémoire Totale (MB)</th>
+                <th>Mémoire Libre (MB)</th>
+                <th>Statistiques Réseau</th>
+                <th>Utilisation Disque (%)</th>
+                <th>Espace Disque Total (GB)</th>
+                <th>Espace Disque Libre (GB)</th>
+            </tr>
+        </thead> 
+        <tbody>
+            {% for machine in machines_virtuelles %}
+                <tr>
+                    <td>{{ machine.id }}</td>
+                    <td>{{ machine.cpu_usage }}</td>
+                    <td>{{ machine.used_memory }}%</td>
+                    <td>{{ machine.total_memory }}</td>
+                    <td>{{ machine.free_memory }}</td>
+                    <td>{{ machine.network_stats }}</td>
+                    <td>{{ machine.used_disk }}</td>
+                    <td>{{ machine.total_disk }}</td>
+                    <td>{{ machine.free_disk }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
