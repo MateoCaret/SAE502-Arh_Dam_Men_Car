@@ -22,15 +22,15 @@
         <tbody>
             {% for machine in machines_virtuelles %}
                 <tr>
-                    <td>{{ machine.id }}</td>
-                    <td>{{ machine.cpu_usage }}</td>
-                    <td>{{ machine.used_memory }}%</td>
-                    <td>{{ machine.total_memory }}</td>
-                    <td>{{ machine.free_memory }}</td>
-                    <td>{{ machine.network_stats }}</td>
-                    <td>{{ machine.used_disk }}</td>
-                    <td>{{ machine.total_disk }}</td>
-                    <td>{{ machine.free_disk }}</td>
+                    <td>{{ machine[0] }}</td>
+                    <td>{{ machine[1] }}%</td>
+                    <td>{{ machine[2] }}%</td>
+                    <td>{{ machine[3] }}</td>
+                    <td>{{ machine[4] }}</td>
+                    <td>{{ machine[5] }}</td>
+                    <td>{{ machine[6] }}</td>
+                    <td>{{ machine[7] }}</td>
+                    <td>{{ machine[8] }}</td>
                 </tr>
             {% endfor %}
         </tbody>
