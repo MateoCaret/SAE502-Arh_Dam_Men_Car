@@ -27,30 +27,6 @@ with sqlite3.connect('collecte.db') as conn:
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
-
-@app.route('/')
-def tableau_de_bord():
-    # Ouvrir une connexion à la base de données
-    with sqlite3.connect('collecte.db') as conn:
-        c = conn.cursor()
-
-        # Récupérer les dernières informations de chaque VM de la base de données
-        c.execute('''
-            SELECT *
-            FROM data
-            WHERE (id, timestamp) IN (
-                SELECT id, MAX(timestamp)
-                FROM data
-                GROUP BY id
-            )
-        ''')
-        vm_infos = c.fetchall()
-
-    # Passer les informations à votre template HTML
-    return render_template('tableau_de_bord.html', machines_virtuelles=vm_infos)
-
-collect_lock = threading.Lock()
 
 # Fonction pour collecter et stocker les informations de chaque VM
 def collect():
@@ -145,6 +121,30 @@ def collect():
                 # Supprimer les enregistrements de plus de 24 heures
                 c.execute('''DELETE FROM data WHERE timestamp < datetime('now', '-70 day')''')
                 conn.commit()
+    
+
+@app.route('/')
+def tableau_de_bord():
+    # Ouvrir une connexion à la base de données
+    with sqlite3.connect('collecte.db') as conn:
+        c = conn.cursor()
+
+        # Récupérer les dernières informations de chaque VM de la base de données
+        c.execute('''
+            SELECT *
+            FROM data
+            WHERE (id, timestamp) IN (
+                SELECT id, MAX(timestamp)
+                FROM data
+                GROUP BY id
+            )
+        ''')
+        vm_infos = c.fetchall()
+
+    # Passer les informations à votre template HTML
+    return render_template('tableau_de_bord.j2', machines_virtuelles=vm_infos)
+
+collect_lock = threading.Lock()
                 
 
 if __name__ == '__main__':
