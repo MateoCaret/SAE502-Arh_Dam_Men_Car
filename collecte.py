@@ -1,10 +1,10 @@
 from flask import Flask, render_template
 import paramiko
 import sqlite3
-import threading
 import time
 from datetime import datetime
-import schedule
+import threading
+import pytz
 
 app = Flask(__name__)
 
@@ -24,9 +24,32 @@ with sqlite3.connect('collecte.db') as conn:
             used_disk TEXT,
             total_disk TEXT,
             free_disk TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            timestamp DATETIME
         )
     ''')
+    
+
+@app.route('/')
+def tableau_de_bord():
+    # Ouvrir une connexion à la base de données
+    with sqlite3.connect('collecte.db') as conn:
+        c = conn.cursor()
+
+        # Récupérer les dernières informations de chaque VM de la base de données
+        c.execute('''
+            SELECT *
+            FROM data
+            WHERE (id, timestamp) IN (
+                SELECT id, MAX(timestamp)
+                FROM data
+                GROUP BY id
+            )
+        ''')
+        vm_infos = c.fetchall()
+
+    # Passer les informations à votre template HTML
+    return render_template('tableau_de_bord.html', machines_virtuelles=vm_infos)
+
 
 # Fonction pour collecter et stocker les informations de chaque VM
 def collect():
@@ -35,9 +58,14 @@ def collect():
             {'id': 'VM2', 'ip': '192.168.1.73', 'username': 'user', 'password': 'bonjour'},
         ]
 
+        all_vm_data = []
+
         for vm in vms:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            vm_data = {}
+
             try:
                 ssh.connect(vm['ip'], username=vm['username'], password=vm['password'])
                 #print(f"Connected to VM at {vm['ip']}")
@@ -45,7 +73,7 @@ def collect():
                 # Récupération de l'utilisation du CPU
                 stdin, stdout, stderr = ssh.exec_command('top -b -n1 | grep "Cpu(s)" | awk \'{print $2 + $4}\'')
                 cpu_usage = (stdout.read().decode('utf-8').strip())
-                
+                    
                 #Récupération de l'utilisation de la mémoire
                 stdin, stdout, stderr = ssh.exec_command('free -m')
                 output = stdout.read().decode('utf-8')
@@ -81,6 +109,21 @@ def collect():
                 percent_used_disk = disk_line[4]
                 total_disk = disk_line[1]
                 free_disk = disk_line[3]
+                    
+                paris_timezone = pytz.timezone('Europe/Paris')
+                heure_actuelle_paris = datetime.now(paris_timezone)
+                paris_time_str = heure_actuelle_paris.strftime('%Y-%m-%d %H:%M:%S')
+
+                vm_data['id'] = vm['id']
+                vm_data['cpu_usage'] = cpu_usage
+                vm_data['memory_usage_percentage'] = memory_usage_percentage
+                vm_data['total_memory'] = total_memory
+                vm_data['used_memory'] = used_memory
+                vm_data['network_stats'] = network_stats
+                vm_data['percent_used_disk'] = percent_used_disk
+                vm_data['total_disk'] = total_disk
+                vm_data['free_disk'] = free_disk
+                vm_data['timestamp'] = paris_time_str
 
             except TimeoutError:
                 print(f"Unable to connect to VM at {vm['ip']}")
@@ -88,9 +131,15 @@ def collect():
             finally:
                 ssh.close()
 
-            with sqlite3.connect('collecte.db') as conn:
-                c = conn.cursor()
-                # Insérer les informations dans la base de données
+            all_vm_data.append(vm_data)
+        print(all_vm_data)
+
+
+        # Insérer toutes les données dans la base de données
+        with sqlite3.connect('collecte.db') as conn:
+            c = conn.cursor()
+            for vm_data in all_vm_data:
+                #print(vm_data)
                 c.execute('''
                     INSERT INTO data (
                         id,
@@ -101,62 +150,38 @@ def collect():
                         network_stats,
                         used_disk,
                         total_disk,
-                        free_disk
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        free_disk,
+                        timestamp
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
-                    vm['id'],
-                    cpu_usage,
-                    memory_usage_percentage,
-                    total_memory,
-                    total_memory - used_memory,
-                    network_stats,
-                    percent_used_disk,
-                    total_disk,
-                    free_disk
-                ))  
-                conn.commit()
-        
-                #print(cpu_usage, memory_usage_percentage, total_memory, total_memory - used_memory, network_stats, percent_used_disk, total_disk, free_disk)
+                    vm_data['id'],
+                    vm_data['cpu_usage'],
+                    vm_data['memory_usage_percentage'],
+                    vm_data['total_memory'],
+                    vm_data['used_memory'],
+                    vm_data['network_stats'],
+                    vm_data['percent_used_disk'],
+                    vm_data['total_disk'],
+                    vm_data['free_disk'],
+                    vm_data['timestamp']
+                ))
+            conn.commit()
+            
+            #print(cpu_usage, memory_usage_percentage, total_memory, total_memory - used_memory, network_stats, percent_used_disk, total_disk, free_disk)
 
-                # Supprimer les enregistrements de plus de 24 heures
-                c.execute('''DELETE FROM data WHERE timestamp < datetime('now', '-70 day')''')
-                conn.commit()
-    
+            # Supprimer les enregistrements de plus de 24 heures
+            c.execute('''DELETE FROM data WHERE timestamp < datetime('now', '-70 day')''')
+            conn.commit()
 
-@app.route('/')
-def tableau_de_bord():
-    # Ouvrir une connexion à la base de données
-    with sqlite3.connect('collecte.db') as conn:
-        c = conn.cursor()
-
-        # Récupérer les dernières informations de chaque VM de la base de données
-        c.execute('''
-            SELECT *
-            FROM data
-            WHERE (id, timestamp) IN (
-                SELECT id, MAX(timestamp)
-                FROM data
-                GROUP BY id
-            )
-        ''')
-        vm_infos = c.fetchall()
-
-    # Passer les informations à votre template HTML
-    return render_template('tableau_de_bord.j2', machines_virtuelles=vm_infos)
-
-collect_lock = threading.Lock()
-                
 
 if __name__ == '__main__':
-    def run_schedule():
+    def collect_and_wait():
         while True:
-                schedule.run_pending()
-                time.sleep(1)
+            collect()  # Appel de la fonction de collecte des données
+            time.sleep(30)  # Attendre 30 secondes avant la prochaine collecte
 
-    schedule.every(30).seconds.do(collect)
-
-    # Exécuter la boucle dans un thread séparé
-    t = threading.Thread(target=run_schedule)
+    # Lancer la collecte de données dans un thread séparé
+    t = threading.Thread(target=collect_and_wait)
     t.start()
 
-    app.run(debug=True)
+    app.run(debug=False)
