@@ -83,24 +83,44 @@ def collect():
                 used_memory = int(memory_line[2])
                 memory_usage_percentage = round((used_memory / total_memory) * 100, 2)
 
-                #Vérification de l'état de l'interface réseau
-                stdin, stdout, stderr = ssh.exec_command('ip link show enp0s3')
-                network_interface_status = stdout.read().decode('utf-8').strip()
-                network_interface_up = 'UP' in network_interface_status
+                # Exécuter la commande pour obtenir le nom de toutes les interfaces réseau
+                stdin, stdout, stderr = ssh.exec_command('ls /sys/class/net')
+                network_interfaces = stdout.read().decode().strip().split('\n')
+
+                network_stats = []
+
+                for interface in network_interfaces:
+                    # Exécuter la commande pour obtenir l'adresse IP
+                    stdin, stdout, stderr = ssh.exec_command(f'ip -f inet addr show {interface} | grep -Po \'(?<=inet ){r"[\d.]"}+\'')
+                    ip_address = stdout.read().decode().strip()
+
+                    # Exécuter la commande pour obtenir l'adresse MAC
+                    stdin, stdout, stderr = ssh.exec_command(f'cat /sys/class/net/{interface}/address')
+                    mac_address = stdout.read().decode().strip()
+
+                    # Exécuter la commande pour obtenir l'état de la carte réseau
+                    stdin, stdout, stderr = ssh.exec_command(f'cat /sys/class/net/{interface}/operstate')
+                    network_state = stdout.read().decode().strip()
+
+                    network_stats.append({
+                        'interface': interface,
+                        'ip_address': ip_address,
+                        'mac_address': mac_address,
+                        'network_state': network_state
+                    })
 
                 #Vérification de la connectivité Internet
                 stdin, stdout, stderr = ssh.exec_command('ping -c 1 8.8.8.8')
                 internet_connectivity = '1 packets transmitted, 1 received' in stdout.read().decode('utf-8')
+                internet_connectivity_str = f"Internet connectivity: {'OK' if internet_connectivity else 'NOK'}"
 
-                #Définition des statistiques réseau
-                network_stats = {
-                'network_interface_status': 'Up' if network_interface_up else 'Down',
-                'internet_connectivity': 'OK' if internet_connectivity else 'NOK'
-                }
+                # Convert network_stats to a string
+                network_stats_str = '\n'.join([f"Interface: {stat['interface']}, IP: {stat['ip_address']}, MAC: {stat['mac_address']}, State: {stat['network_state']}" for stat in network_stats])
 
-                #Affichage des statistiques réseau
-                network_stats = f"Interface: {network_stats['network_interface_status']}, Internet: {network_stats['internet_connectivity']}"
+                # Append internet connectivity to the string
+                network_stats_str += '\n' + internet_connectivity_str
 
+                
                 #Récupération de l'utilisation de l'espace disque
                 stdin, stdout, stderr = ssh.exec_command('df -h /')
                 output = stdout.read().decode('utf-8')
@@ -119,7 +139,7 @@ def collect():
                 vm_data['memory_usage_percentage'] = memory_usage_percentage
                 vm_data['total_memory'] = total_memory
                 vm_data['used_memory'] = used_memory
-                vm_data['network_stats'] = network_stats
+                vm_data['network_stats'] = network_stats_str
                 vm_data['percent_used_disk'] = percent_used_disk
                 vm_data['total_disk'] = total_disk
                 vm_data['free_disk'] = free_disk
