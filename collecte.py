@@ -1,4 +1,4 @@
-from flask import Flask, render_template
+from flask import Flask, jsonify, render_template
 import paramiko
 import sqlite3
 import time
@@ -48,7 +48,22 @@ def tableau_de_bord():
         vm_infos = c.fetchall()
 
     # Passer les informations à votre template HTML
-    return render_template('tableau_de_bord.html', machines_virtuelles=vm_infos)
+    return render_template('tableau_de_bord.j2', machines_virtuelles=vm_infos)
+
+@app.route('/api/data')
+def api_data():
+    # Ouvrir une connexion à la base de données
+    with sqlite3.connect('collecte.db') as conn:
+        c = conn.cursor()
+
+        # Récupérer toutes les informations de la base de données
+        c.execute("SELECT id, cpu_usage, timestamp FROM data ORDER BY timestamp DESC")
+        data = c.fetchall()
+
+    data = [(id, float(cpu_usage.replace(',', '.')), timestamp) for id, cpu_usage, timestamp in data]
+    # Convertir les données en JSON et les renvoyer
+    print(data)
+    return jsonify(data)
 
 
 # Fonction pour collecter et stocker les informations de chaque VM
@@ -91,7 +106,7 @@ def collect():
 
                 for interface in network_interfaces:
                     # Exécuter la commande pour obtenir l'adresse IP
-                    stdin, stdout, stderr = ssh.exec_command(f'ip -f inet addr show {interface} | grep -Po \'(?<=inet ){r"[\d.]"}+\'')
+                    stdin, stdout, stderr = ssh.exec_command(f"ip -f inet addr show {interface} | grep -Po '(?<=inet )[\d.]+'")
                     ip_address = stdout.read().decode().strip()
 
                     # Exécuter la commande pour obtenir l'adresse MAC
