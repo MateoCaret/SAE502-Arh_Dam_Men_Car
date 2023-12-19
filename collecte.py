@@ -50,17 +50,27 @@ def tableau_de_bord():
     # Passer les informations à votre template HTML
     return render_template('tableau_de_bord.j2', machines_virtuelles=vm_infos)
 
-@app.route('/api/data')
-def api_data():
+@app.route('/api/data/<metric>')
+def api_data(metric):
+    if metric == "CPU" :
+        value = "cpu_usage"
+    elif metric == "RAM" :
+        value = "used_memory"
+    elif metric == "Disk" :
+        value = "used_disk"
     # Ouvrir une connexion à la base de données
     with sqlite3.connect('collecte.db') as conn:
         c = conn.cursor()
 
         # Récupérer toutes les informations de la base de données
-        c.execute("SELECT id, cpu_usage, timestamp FROM data ORDER BY timestamp DESC")
+        c.execute(f"SELECT id, {value}, timestamp FROM data ORDER BY timestamp DESC")
         data = c.fetchall()
 
-    data = [(id, float(cpu_usage.replace(',', '.')), timestamp) for id, cpu_usage, timestamp in data]
+    if metric == "Disk" :
+        data = [(id, float(value.replace('%', '')), timestamp) for id, value, timestamp in data]
+    else :
+        data = [(id, value.replace(',', '.'), timestamp) for id, value, timestamp in data]
+    
     # Convertir les données en JSON et les renvoyer
     print(data)
     return jsonify(data)

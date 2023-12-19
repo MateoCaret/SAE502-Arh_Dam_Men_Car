@@ -11,76 +11,110 @@
             }, 30000);
         });
     </script>
+    <style>
+        .header {
+            background-color: black;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+        }
+        .dark {
+            background-color: black;
+            color: white;
+        }
+    </style>
 </head>
-<body>
-    <div class="container-fluid">
+<body><br>
+    <header class="header">
+        <br>
+        <h2>Bienvenue sur votre tableau de bord</h2>
+        <br>
+    </header>
+    <br>
+    <div class="container container-fluid"><hr>
         <div id="tableau"><br>
-            <h1>Tableau de Bord - Machines Virtuelles</h1><br>
-            <table class="table table-striped table-hover">
-                <thead class="thead-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Utilisation CPU (%)</th>
-                        <th>Utilisation Mémoire (%)</th>
-                        <th>Mémoire Totale (MB)</th>
-                        <th>Mémoire Libre (MB)</th>
-                        <th>Statistiques Réseau</th>
-                        <th>Utilisation Disque (%)</th>
-                        <th>Espace Disque Total (GB)</th>
-                        <th>Espace Disque Libre (GB)</th>
-                    </tr>
-                </thead> 
-                <tbody>
-                    {% for machine in machines_virtuelles %}
+            <h4>Etat des machines virtuelles en temps réel</h4><br>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-bordered">
+                    <thead>
                         <tr>
-                            <td>{{ machine[0] }}</td>
-                            <td>{{ machine[1] }}%</td>
-                            <td>{{ machine[2] }}%</td>
-                            <td>{{ machine[3] }}</td>
-                            <td>{{ machine[4] }}</td>
-                            <td>
-                                <details>
-                                    <summary>Statistiques Réseau</summary>
-                                    <pre>{{ machine[5].replace('\\n', '\n') }}</pre>
-                                </details>
-                            </td>
-                            <td>{{ machine[6] }}</td>
-                            <td>{{ machine[7] }}</td>
-                            <td>{{ machine[8] }}</td>
+                            <th>ID</th>
+                            <th>CPU Use (%)</th>
+                            <th>RAM Use (%)</th>
+                            <th>Total RAM (MB)</th>
+                            <th>Free RAM (MB)</th>
+                            <th>Network</th>
+                            <th>Disk Use (%)</th>
+                            <th>Total Disk Space (GB)</th>
+                            <th>Free Disk Space (GB)</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-            </div><br>
-            <div class="container container-fluid">
-            <h1>Graphique - Utilisation CPU</h1><br>
-                <canvas id="myChart"></canvas>
+                    </thead> 
+                    <tbody>
+                        {% for machine in machines_virtuelles %}
+                            <tr>
+                                <td>{{ machine[0] }}</td>
+                                <td>{{ machine[1] }}%</td>
+                                <td>{{ machine[2] }}%</td>
+                                <td>{{ machine[3] }}</td>
+                                <td>{{ machine[4] }}</td>
+                                <td>
+                                    <details>
+                                        <summary>Statistiques Réseau</summary>
+                                        <pre>{{ machine[5].replace('\\n', '\n') }}</pre>
+                                    </details>
+                                </td>
+                                <td>{{ machine[6] }}</td>
+                                <td>{{ machine[7] }}</td>
+                                <td>{{ machine[8] }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            </div><br> <hr>
+            <div class="container container-fluid"><br>
+            <h4>Graphique en temps réel</h4><br>
+                <div class="col-md-12">
+                    <canvas id="myChart"></canvas>
+                </div><br>
+                <div class="col-md-4">
+                    <select id="metric-select">
+                        <option value="CPU">CPU</option>
+                        <option value="RAM">RAM</option>
+                        <option value="Disk">Disk</option>
+                    </select>
+                </div>
             </div><br>
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
     <script>
+    var myChart;
     function updateChart() {
-        fetch('/api/data')
+        var metric = document.getElementById('metric-select').value;
+        fetch('/api/data/' + metric)
         .then(response => response.json())
         .then(data => {
             console.log(data);
-            data = data.slice(-50);
+            data = data.slice(-100);
             var ctx = document.getElementById('myChart').getContext('2d');
             var dataVM1 = data.filter(item => item[0] === 'VM1');
             var dataVM2 = data.filter(item => item[0] === 'VM2');
-            new Chart(ctx, {
+            if (myChart) {
+                myChart.destroy();
+            }
+            myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: data.map(item => item[2]),
                     datasets: [{
-                        label: 'CPU Usage VM1',
+                        label: metric + " Usage VM1",
                         data: dataVM1.map(item => item[1]),
                         borderColor: 'rgb(75, 192, 192)',
                         fill: false
                     }, {
-                        label: 'CPU Usage VM2',
+                        label: metric + " Usage VM2",
                         data: dataVM2.map(item => item[1]),
                         borderColor: 'rgb(255, 99, 132)',
                         fill: false
@@ -96,7 +130,7 @@
                             displayFormats: {
                                 minute: 'HH:mm'
                             },
-                            tooltipFormat: 'DD/MM/YYYY HH:mm'
+                            tooltipFormat: 'dd/MM/yyyy HH:mm'
                         }
                     },
                     y: {
@@ -114,6 +148,7 @@
     }
     updateChart();
     setInterval(updateChart, 60000);
+    document.getElementById('metric-select').addEventListener('change', updateChart);
     </script>
 </body>
 </html>
