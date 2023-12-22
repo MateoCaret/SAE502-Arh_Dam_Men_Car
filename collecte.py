@@ -63,7 +63,7 @@ def api_data(metric):
         c = conn.cursor()
 
         # Récupérer toutes les informations de la base de données
-        c.execute(f"SELECT id, {value}, timestamp FROM data ORDER BY timestamp DESC")
+        c.execute(f"SELECT id, {value}, timestamp FROM data ORDER BY timestamp DESC LIMIT 100")
         data = c.fetchall()
 
     if metric == "Disk" :
@@ -79,8 +79,8 @@ def api_data(metric):
 # Fonction pour collecter et stocker les informations de chaque VM
 def collect():
         vms = [
-            {'id': 'VM1', 'ip': '192.168.1.54', 'username': 'user', 'password': 'bonjour'},
-            {'id': 'VM2', 'ip': '192.168.1.73', 'username': 'user', 'password': 'bonjour'},
+            {'id': 'VM1', 'ip': '192.168.106.28', 'username': 'user', 'password': 'bonjour'},
+            {'id': 'VM2', 'ip': '192.168.106.227', 'username': 'user', 'password': 'bonjour'},
         ]
 
         all_vm_data = []
@@ -116,7 +116,7 @@ def collect():
 
                 for interface in network_interfaces:
                     # Exécuter la commande pour obtenir l'adresse IP
-                    stdin, stdout, stderr = ssh.exec_command(f"ip -f inet addr show {interface} | grep -Po '(?<=inet )[\d.]+'")
+                    stdin, stdout, stderr = ssh.exec_command(f"ip -f inet addr show {interface} | grep -Po '(?<=inet )[\\d.]+'")
                     ip_address = stdout.read().decode().strip()
 
                     # Exécuter la commande pour obtenir l'adresse MAC

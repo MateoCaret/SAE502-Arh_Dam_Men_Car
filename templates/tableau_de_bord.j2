@@ -97,7 +97,6 @@
         .then(response => response.json())
         .then(data => {
             console.log(data);
-            data = data.slice(-100);
             var ctx = document.getElementById('myChart').getContext('2d');
             var dataVM1 = data.filter(item => item[0] === 'VM1');
             var dataVM2 = data.filter(item => item[0] === 'VM2');
