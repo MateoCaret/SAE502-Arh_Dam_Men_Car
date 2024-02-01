@@ -86,6 +86,7 @@
                 </div>
             </div><br>
         </div>
+        </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
@@ -97,6 +98,7 @@
         .then(response => response.json())
         .then(data => {
             console.log(data);
+            data.sort((a, b) => new Date(a[2]) - new Date(b[2]));
             var ctx = document.getElementById('myChart').getContext('2d');
             var dataVM1 = data.filter(item => item[0] === 'VM1');
             var dataVM2 = data.filter(item => item[0] === 'VM2');
@@ -106,15 +108,14 @@
             myChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: data.map(item => item[2]),
                     datasets: [{
                         label: metric + " Usage VM1",
-                        data: dataVM1.map(item => item[1]),
+                        data: dataVM1.map(item => ({x: item[2], y: item[1]})),
                         borderColor: 'rgb(75, 192, 192)',
                         fill: false
                     }, {
                         label: metric + " Usage VM2",
-                        data: dataVM2.map(item => item[1]),
+                        data: dataVM2.map(item => ({x: item[2], y: item[1]})),
                         borderColor: 'rgb(255, 99, 132)',
                         fill: false
                     }]
@@ -126,10 +127,32 @@
                         bounds: 'data',
                         time: {
                             unit: 'minute',
+                            stepSize: 5,
                             displayFormats: {
-                                minute: 'HH:mm'
+                                minute: 'dd/MM/yyyy HH:mm'
                             },
                             tooltipFormat: 'dd/MM/yyyy HH:mm'
+                        },
+                        distribution: 'linear',
+                        ticks: {
+                            callback: function(value, index, ticks) {
+                                // Convertir la valeur en un objet Date
+                                var date = new Date(value);
+                                // Extraire les minutes de la date
+                                var minutes = date.getMinutes();
+                                // Afficher seulement les labels dont les minutes finissent par 0 ou 5
+                                if (minutes % 5 === 0) {
+                                    // Formater la date en une chaîne de caractères représentant la date et l'heure
+                                    var day = date.getDate();
+                                    var month = date.getMonth() + 1; // Les mois sont indexés à partir de 0 en JavaScript
+                                    var year = date.getFullYear();
+                                    var hour = date.getHours();
+                                    var minute = date.getMinutes();
+                                    return day + '/' + month + '/' + year + ' ' + hour + ':' + minute;
+                                } else {
+                                    return '';
+                                }
+                            }
                         }
                     },
                     y: {
@@ -138,7 +161,8 @@
                             callback: function(value, index, values) {
                                 return value + '%';
                             }
-                        }
+                        },
+                        beginAtZero: true
                     }
                 }
             }
